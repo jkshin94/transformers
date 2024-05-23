@@ -347,6 +347,7 @@ class Agent:
         return self._toolbox
 
     def initialize_for_run(self, task: str, **kwargs):
+        self.token_count = 0
         self.task = task
         if len(kwargs) > 0:
             self.task += f"\nYou have been provided with these initial arguments: {str(kwargs)}."
@@ -605,7 +606,7 @@ class ReactAgent(Agent):
         self.prompt = [
             {
                 "role": MessageRole.SYSTEM,
-                "content": "An agent tried to answer a user query but it failed to do so. You are tasked with providing an answer instead. Here is the agent's memory:",
+                "content": "An agent tried to answer an user query but it got stuck and failed to do so. You are tasked with providing an answer instead. Here is the agent's memory:",
             }
         ]
         self.prompt += self.write_inner_memory_from_logs()[1:]
@@ -663,9 +664,14 @@ class ReactAgent(Agent):
 
         if final_answer is None and iteration == self.max_iterations:
             error_message = "Reached max iterations."
-            self.logs.append({"error": AgentMaxIterationsError(error_message)})
+            final_step_log = {
+                "error": AgentMaxIterationsError(error_message)
+            }
+            self.logs.append(final_step_log)
             self.logger.error(error_message, exc_info=1)
             final_answer = self.provide_final_answer(task)
+            final_step_log["final_answer"] = final_answer
+            yield final_step_log
 
         return final_answer
 
@@ -688,9 +694,13 @@ class ReactAgent(Agent):
 
         if final_answer is None and iteration == self.max_iterations:
             error_message = "Reached max iterations."
-            self.logs.append({"error": AgentMaxIterationsError(error_message)})
+            final_step_log = {
+                "error": AgentMaxIterationsError(error_message)
+            }
+            self.logs.append(final_step_log)
             self.logger.error(error_message, exc_info=1)
             final_answer = self.provide_final_answer(task)
+            final_step_log["final_answer"] = final_answer
 
         return final_answer
 
@@ -765,7 +775,8 @@ class ReactJsonAgent(ReactAgent):
                 answer = arguments
             if answer in self.state:  # if the answer is a state variable, return the value
                 answer = self.state[answer]
-            return answer
+            current_step_logs["final_answer"] = answer
+            return current_step_logs
         else:
             observation = self.execute_tool_call(tool_name, arguments)
             observation_type = type(observation)
