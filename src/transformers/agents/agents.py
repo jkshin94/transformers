@@ -673,7 +673,7 @@ class ReactAgent(Agent):
             final_step_log["final_answer"] = final_answer
             yield final_step_log
 
-        return final_answer
+        yield final_answer
 
 
     def direct_run(self, task: str, **kwargs):
